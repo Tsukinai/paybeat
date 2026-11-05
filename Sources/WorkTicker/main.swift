@@ -24,12 +24,16 @@ let configDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathCom
 let configURL = configDir.appendingPathComponent("config.json")
 let rateURL = configDir.appendingPathComponent("rate.json")
 
+func saveConfig(_ cfg: Config) throws {
+    try FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
+    let enc = JSONEncoder()
+    enc.outputFormatting = [.prettyPrinted, .sortedKeys]
+    try enc.encode(cfg).write(to: configURL)
+}
+
 func loadConfig() throws -> Config {
     if !FileManager.default.fileExists(atPath: configURL.path) {
-        try FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
-        let enc = JSONEncoder()
-        enc.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try enc.encode(Config.default).write(to: configURL)
+        try saveConfig(.default)
         return .default
     }
     return try JSONDecoder().decode(Config.self, from: Data(contentsOf: configURL))
@@ -133,6 +137,24 @@ struct Salary {
     }
 }
 
+@MainActor
+final class SalaryStore: ObservableObject {
+    @Published private(set) var salary: Salary
+    private(set) var config: Config
+
+    init(_ config: Config) throws {
+        salary = try Salary(config)
+        self.config = config
+    }
+
+    func update(_ new: Config) throws {
+        let validated = try Salary(new)
+        try saveConfig(new)
+        config = new
+        salary = validated
+    }
+}
+
 // MARK: - Exchange rate
 
 struct RateCache: Codable {
@@ -212,14 +234,15 @@ func formatMoney(_ sgd: Double, _ digits: Int, cny: Bool, rate: Double?) -> Stri
 }
 
 struct CardView: View {
-    let salary: Salary
+    @ObservedObject var store: SalaryStore
     @ObservedObject var rates: RateStore
     let onMinimize: () -> Void
+    let onSettings: () -> Void
     @AppStorage("useCNY") private var useCNY = false
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.1)) { ctx in
-            content(salary.snapshot(at: ctx.date))
+            content(store.salary.snapshot(at: ctx.date))
         }
         .padding(16)
         .frame(width: 320)
@@ -229,6 +252,7 @@ struct CardView: View {
         .gesture(WindowDragGesture())
         .contextMenu {
             Button(useCNY ? "显示新币" : "显示人民币") { useCNY.toggle() }
+            Button("设置…", action: onSettings)
             Divider()
             Button("退出") { NSApp.terminate(nil) }
         }
@@ -261,8 +285,8 @@ struct CardView: View {
                 .onTapGesture { useCNY.toggle() }
             HStack(alignment: .top) {
                 stat("每秒进账", money(s.perSecond, 4))
-                stat("时薪", money(salary.displayHourly, 0))
-                stat("日薪", money(salary.displayDaily, 0))
+                stat("时薪", money(store.salary.displayHourly, 0))
+                stat("日薪", money(store.salary.displayDaily, 0))
             }
             Divider()
             HStack {
@@ -332,20 +356,85 @@ struct CardView: View {
     }
 }
 
+// MARK: - Settings
+
+func timeOfDay(_ s: String) -> Date {
+    Calendar.current.startOfDay(for: Date()).addingTimeInterval((try? secondsOfDay(s)) ?? 0)
+}
+
+func hhmm(_ d: Date) -> String {
+    let c = Calendar.current.dateComponents([.hour, .minute], from: d)
+    return String(format: "%02d:%02d", c.hour!, c.minute!)
+}
+
+struct SettingsView: View {
+    @State private var salary: Double
+    @State private var workStart: Date
+    @State private var workEnd: Date
+    @State private var lunchStart: Date
+    @State private var lunchEnd: Date
+    @State private var payDay: Int
+    @State private var error: String?
+    let onSave: (Config) throws -> Void
+
+    init(config: Config, onSave: @escaping (Config) throws -> Void) {
+        _salary = State(initialValue: config.monthlySalarySGD)
+        _workStart = State(initialValue: timeOfDay(config.workStart))
+        _workEnd = State(initialValue: timeOfDay(config.workEnd))
+        _lunchStart = State(initialValue: timeOfDay(config.lunchStart))
+        _lunchEnd = State(initialValue: timeOfDay(config.lunchEnd))
+        _payDay = State(initialValue: config.payDay)
+        self.onSave = onSave
+    }
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 16) {
+            Form {
+                TextField("月薪（新币）", value: $salary, format: .number)
+                DatePicker("上班", selection: $workStart, displayedComponents: .hourAndMinute)
+                DatePicker("下班", selection: $workEnd, displayedComponents: .hourAndMinute)
+                DatePicker("午休开始", selection: $lunchStart, displayedComponents: .hourAndMinute)
+                DatePicker("午休结束", selection: $lunchEnd, displayedComponents: .hourAndMinute)
+                Picker("发薪日", selection: $payDay) {
+                    ForEach(1...31, id: \.self) { Text("每月 \($0) 号") }
+                }
+            }
+            if let error {
+                Text(error).foregroundStyle(.red).frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Button("保存", action: save).keyboardShortcut(.defaultAction)
+        }
+        .padding(20)
+        .frame(width: 320)
+    }
+
+    func save() {
+        let cfg = Config(
+            monthlySalarySGD: salary, workStart: hhmm(workStart), workEnd: hhmm(workEnd),
+            lunchStart: hhmm(lunchStart), lunchEnd: hhmm(lunchEnd), payDay: payDay)
+        do {
+            try onSave(cfg)
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+}
+
 // MARK: - App
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var panel: NSPanel?
     var rates: RateStore?
-    var salary: Salary?
+    var store: SalaryStore?
     var statusItem: NSStatusItem?
     var ticker: Timer?
+    var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let salary: Salary
+        let store: SalaryStore
         do {
-            salary = try Salary(loadConfig())
+            store = try SalaryStore(loadConfig())
         } catch {
             let alert = NSAlert()
             alert.messageText = "配置文件有误"
@@ -356,12 +445,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        self.salary = salary
+        // Hidden menu so text-editing shortcuts work in the settings window.
+        let edit = NSMenu(title: "编辑")
+        edit.addItem(withTitle: "撤销", action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: "剪切", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "拷贝", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "粘贴", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "全选", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        let editItem = NSMenuItem()
+        editItem.submenu = edit
+        NSApp.mainMenu = NSMenu()
+        NSApp.mainMenu?.addItem(editItem)
+
+        self.store = store
         let rates = RateStore()
         self.rates = rates
-        let host = NSHostingView(rootView: CardView(salary: salary, rates: rates) { [weak self] in
-            self?.panel?.orderOut(nil)
-        })
+        let host = NSHostingView(rootView: CardView(
+            store: store, rates: rates,
+            onMinimize: { [weak self] in self?.panel?.orderOut(nil) },
+            onSettings: { [weak self] in self?.openSettings() }))
         let panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: host.fittingSize),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -394,8 +496,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func updateStatusTitle() {
-        guard let salary, let button = statusItem?.button else { return }
-        let today = salary.snapshot(at: Date()).today
+        guard let store, let button = statusItem?.button else { return }
+        let today = store.salary.snapshot(at: Date()).today
         button.title = formatMoney(
             today, 2, cny: UserDefaults.standard.bool(forKey: "useCNY"), rate: rates?.cache?.cny)
     }
@@ -407,6 +509,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let menu = NSMenu()
             menu.addItem(withTitle: useCNY ? "显示新币" : "显示人民币", action: #selector(toggleCurrency), keyEquivalent: "")
                 .target = self
+            menu.addItem(withTitle: "设置…", action: #selector(openSettings), keyEquivalent: "").target = self
             menu.addItem(.separator())
             menu.addItem(withTitle: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
             item.menu = menu
@@ -423,6 +526,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let defaults = UserDefaults.standard
         defaults.set(!defaults.bool(forKey: "useCNY"), forKey: "useCNY")
         updateStatusTitle()
+    }
+
+    @objc func openSettings() {
+        guard let store else { return }
+        if settingsWindow?.isVisible != true {
+            let view = SettingsView(config: store.config) { [weak self] cfg in
+                try self?.store?.update(cfg)
+                self?.updateStatusTitle()
+                self?.settingsWindow?.close()
+            }
+            let controller = NSHostingController(rootView: view)
+            controller.sizingOptions = [.preferredContentSize]
+            let window = NSWindow(contentViewController: controller)
+            window.title = "设置"
+            window.styleMask = [.titled, .closable]
+            window.isReleasedWhenClosed = false
+            window.center()
+            settingsWindow = window
+        }
+        NSApp.activate()
+        settingsWindow?.makeKeyAndOrderFront(nil)
     }
 }
 
