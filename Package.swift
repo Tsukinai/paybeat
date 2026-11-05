@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "WorkTicker",
+    name: "PayBeat",
     platforms: [.macOS(.v15)],
-    targets: [.executableTarget(name: "WorkTicker", swiftSettings: [.swiftLanguageMode(.v5)])]
+    targets: [.executableTarget(name: "PayBeat", swiftSettings: [.swiftLanguageMode(.v5)])]
 )

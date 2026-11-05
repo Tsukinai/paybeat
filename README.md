@@ -1,25 +1,36 @@
-# WorkTicker 上班鼓励器
+# 薪跳 PayBeat
 
-macOS 桌面悬浮卡片 + 菜单栏，实时显示今天已经赚了多少钱。
+macOS 桌面悬浮卡片 + 菜单栏，按秒显示今天已经赚了多少钱。
 
-- 今日已赚（每 0.1 秒刷新）、每秒进账、时薪、日薪
-- 已工作时长、距下班时间、进度条，午休时金额暂停增长
-- 按发薪周期累计本期已赚，显示距发工资天数
-- 新币 / 人民币切换，汇率来自 open.er-api.com，每 6 小时刷新
+A macOS floating card and menu bar item that shows what you have earned today, second by second. The interface follows the system language (Chinese or English).
+
+## 功能
+
+- 今日已赚按秒跳动，另有每秒进账、时薪、日薪、工作进度、距下班、本期已赚、距发工资
+- 月薪、年薪（可设每年几薪）、时薪三种计薪方式
+- 21 种工资币种，可再选一个换算币种一键切换，汇率来自 open.er-api.com
+- 工作日自选（单休、双休都行），午休可关
+- 法定节假日：中国大陆含调休（数据来自 holiday-cn），其他 200 多个国家和地区来自 Nager.Date
+- 发薪日碰上休息日可提前发
+- 下班后继续计时算加班，可设倍率，卡片上点"下班"结束
+- 外观：主题色、深色 / 浅色、不透明度、卡片大小、小数位、卡片显示哪几行，在设置里改动时卡片实时预览
+- 菜单栏可显示今日已赚、距下班倒计时，或只显示图标
+- 每个阶段的鼓励语可自定义
+- 开机自启、自动检查更新
 
 ## 安装
 
 ### 下载
 
-到 [Releases](https://github.com/Tsukinai/work-ticker/releases) 下载 `WorkTicker-x.y.z.dmg`，打开后把 WorkTicker 拖进"应用程序"。需要 macOS 15+，支持 Apple 芯片和 Intel。
+到 [Releases](https://github.com/Tsukinai/paybeat/releases) 下载 `PayBeat-x.y.z.dmg`，打开后把 PayBeat 拖进"应用程序"。需要 macOS 15+，支持 Apple 芯片和 Intel。
 
 app 没有经过 Apple 公证，第一次打开会被系统拦下。到"系统设置 > 隐私与安全性"，在页面下方点"仍要打开"。也可以在终端执行：
 
 ```sh
-xattr -dr com.apple.quarantine /Applications/WorkTicker.app
+xattr -dr com.apple.quarantine /Applications/PayBeat.app
 ```
 
-开机自启：到"系统设置 > 通用 > 登录项与扩展"，在"登录时打开"里点"+"，添加 WorkTicker。
+第一次打开会先弹出设置，填好工资和上下班时间就开始计时。开机自启在"设置 > 通用"里打开。
 
 ### 从源码安装
 
@@ -29,37 +40,25 @@ xattr -dr com.apple.quarantine /Applications/WorkTicker.app
 ./install.sh
 ```
 
-编译并安装到 `/Applications/WorkTicker.app`，同时添加登录启动项。改代码后重新运行即可更新。
+编译并安装到 `/Applications/PayBeat.app`。改代码后重新运行即可更新。
 
-`./release.sh` 会编译通用版本并打包成 `.build/WorkTicker-<版本号>.dmg`，版本号在 `Info.plist` 里改。
+`./release.sh` 会编译通用版本并打包成 `.build/PayBeat-<版本号>.dmg`，版本号在 `Info.plist` 里改。
 
 ## 使用
 
-- 点大金额，或右键卡片 / 菜单栏：切换新币和人民币
-- 卡片右上角"–"：隐藏卡片；左键点菜单栏金额：显示或隐藏卡片
+- 点大金额，或右键卡片 / 菜单栏：在工资币种和换算币种之间切换
+- 卡片右上角"–"：隐藏卡片；左键点菜单栏：显示或隐藏卡片
+- 右键卡片或菜单栏，选"设置…"
 - 拖动卡片任意位置移动，位置会记住
 
-## 配置
+## 怎么算的
 
-右键卡片或菜单栏，选"设置…"，可以改月薪、上下班时间、午休、发薪日，保存后立即生效。
+- 本期：上个发薪日的次日到这个发薪日。发薪日超过当月天数时（如 2 月 30 号）按当月最后一天算
+- 月薪、年薪：本期收入 = 月薪 × 每年几薪 ÷ 12（年薪则 ÷ 12），平摊到本期每个工作日的工作时间里。发薪日下班时，本期已赚正好等于本期收入
+- 时薪：每秒进账 = 时薪 ÷ 3600
+- 卡片上的时薪、日薪默认按实际工作时间算，也可以改成按固定天数和小时（比如每月 21.75 天、每天 8 小时）
+- 节假日不算工作日；中国大陆的调休上班日算工作日
 
-配置保存在 `~/.config/work-ticker/config.json`（首次运行生成）：
+## 文件
 
-```json
-{
-  "lunchEnd" : "13:30",
-  "lunchStart" : "12:00",
-  "monthlySalarySGD" : 5000,
-  "payDay" : 30,
-  "workEnd" : "18:30",
-  "workStart" : "10:00"
-}
-```
-
-直接改这个文件的话，要重启程序才生效。
-
-## 算法
-
-- 日薪 = 月薪 / 本期工作日数。本期指上个发薪日次日到本月发薪日，工作日只算周一到周五，不含公众假期。发薪日下班时，本期已赚正好等于月薪
-- 发薪日超过当月天数时（如 2 月 30 号），按当月最后一天算
-- 卡片上的时薪、日薪两格按每月 20 天、每天 8 小时显示
+配置和缓存都在 `~/.config/work-ticker/`：`config.json` 是设置，`rate.json` 是汇率缓存，`holidays/` 是节假日缓存。直接改 `config.json` 的话要重启程序才生效。
