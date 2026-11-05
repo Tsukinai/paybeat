@@ -6,6 +6,17 @@ macOS 刘海 / 桌面卡片 + 菜单栏 + 小组件，按秒显示今天已经�
 
 Coaxes you into going to work (and may make you laugh at your capitalist overlords): a notch island or floating card, a menu bar item and desktop widgets showing what you have earned today, second by second. The interface follows the system language (Chinese or English).
 
+<p align="center"><img src="docs/paybeat.gif" width="720" alt="薪跳 PayBeat 宣传短片"></p>
+<p align="center"><a href="docs/paybeat.mp4">高清视频（MP4）</a></p>
+
+## 截图
+
+![刘海：平时收起，鼠标移上去展开](docs/notch.png)
+
+| 桌面卡片 | 菜单栏 | 设置 |
+| :-: | :-: | :-: |
+| ![桌面卡片，深色和浅色](docs/card.png) | ![菜单栏右键菜单](docs/menu.png) | ![设置窗口](docs/settings.png) |
+
 ## 功能
 
 - 今日已赚按秒跳动，另有每秒进账、每分钟进账、时薪、日薪、工作进度、距下班、本期已赚、距发工资
