@@ -237,7 +237,7 @@ struct EarningsView: View {
             row(L("日薪"), entry.money(s.daily, in: code, digits))
             row(L("本期已赚"), entry.money(s.cycle, in: code, 0))
             Spacer(minLength: 0)
-            Text(cfg.messages[s.messageSlot.rawValue] ?? s.messageSlot.defaultText)
+            Text(cfg.messages[s.messageSlot.rawValue] ?? s.messageSlot.defaultText(at: entry.date))
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)

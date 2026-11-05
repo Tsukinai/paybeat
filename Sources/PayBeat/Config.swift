@@ -41,18 +41,36 @@ enum MessageSlot: String, CaseIterable, Identifiable {
         case .holiday: L("节假日")
         }
     }
-    var defaultText: String {
+    var defaultTexts: [String] {
         switch self {
-        case .beforeWork: L("还没开工，先吃早饭")
-        case .work0: L("刚开工，慢慢进入状态")
-        case .work25: L("稳住，钱在一秒一秒进账")
-        case .work50: L("过半了，喝口水")
-        case .work75: L("收尾阶段，别硬熬")
-        case .lunch: L("午休中，好好吃饭")
-        case .offWork: L("下班了，今天的钱已到手")
-        case .overtime: L("加班中，记得早点回家")
-        case .restDay: L("今天休息，别想工作")
-        case .holiday: L("节日快乐，好好休息")
+        case .beforeWork: [L("还没到点，不急"), L("工位还没坐热"), L("再刷五分钟手机")]
+        case .work0: [L("先把咖啡喝了"), L("开机，假装很忙"), L("今天也是来挣钱的")]
+        case .work25: [L("上厕所也在计费"), L("钱在路上了"), L("摸鱼和干活一个价")]
+        case .work50: [L("过半了"), L("起来走两步"), L("最难熬的就是这段")]
+        case .work75: [L("快了快了"), L("别接新活"), L("可以开始想晚饭了")]
+        case .lunch: [L("吃饭不谈工作"), L("睡会儿"), L("午休这段不算钱")]
+        case .offWork: [L("收工"), L("今天的钱到手了"), L("关电脑，走人")]
+        case .overtime: [L("这段是加班"), L("差不多就撤"), L("老板不会记得你几点走")]
+        case .restDay: [L("今天不上班"), L("睡到自然醒"), L("工资照样在攒")]
+        case .holiday: [L("放假了"), L("假期余额还很多"), L("出去转转")]
+        }
+    }
+
+    /// One default line, rotating every hour.
+    func defaultText(at date: Date) -> String {
+        let texts = defaultTexts
+        let hours = Int(date.timeIntervalSince1970 / 3600)
+        return texts[(hours + (Self.allCases.firstIndex(of: self) ?? 0)) % texts.count]
+    }
+}
+
+enum DisplayMode: String, Codable, CaseIterable, Identifiable {
+    case notch, card
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .notch: L("刘海")
+        case .card: L("桌面卡片")
         }
     }
 }
@@ -105,6 +123,7 @@ struct Config: Codable, Equatable {
     /// Custom messages keyed by MessageSlot raw value.
     var messages: [String: String] = [:]
     var checkUpdates = true
+    var displayMode = DisplayMode.notch
     var accent = "3DDC66"
     var theme = CardTheme.dark
     var opacity = 0.95
@@ -157,6 +176,7 @@ struct Config: Codable, Equatable {
         overtimeRate = try value(.overtimeRate, d.overtimeRate)
         messages = try value(.messages, d.messages)
         checkUpdates = try value(.checkUpdates, d.checkUpdates)
+        displayMode = try value(.displayMode, d.displayMode)
         accent = try value(.accent, d.accent)
         theme = try value(.theme, d.theme)
         opacity = try value(.opacity, d.opacity)

@@ -59,3 +59,16 @@ func hhmm(_ d: Date) -> String {
     let c = Calendar.current.dateComponents([.hour, .minute], from: d)
     return String(format: "%02d:%02d", c.hour!, c.minute!)
 }
+
+extension Phase {
+    /// Status dot color.
+    func color(_ accent: Color) -> Color {
+        switch self {
+        case .working: accent
+        case .lunch: .orange
+        case .overtime: .red
+        case .holiday: .pink
+        default: .gray
+        }
+    }
+}

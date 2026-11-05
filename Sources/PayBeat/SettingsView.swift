@@ -149,6 +149,10 @@ struct SettingsView: View {
 
     var lookTab: some View {
         Form {
+            Picker(L("显示方式"), selection: $draft.displayMode) {
+                ForEach(DisplayMode.allCases) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.segmented)
             LabeledContent(L("主题色")) {
                 HStack(spacing: 8) {
                     ForEach(accentColors, id: \.hex) { c in
@@ -198,7 +202,7 @@ struct SettingsView: View {
     var messagesTab: some View {
         Form {
             ForEach(MessageSlot.allCases) { slot in
-                TextField(slot.label, text: message(slot), prompt: Text(slot.defaultText))
+                TextField(slot.label, text: message(slot), prompt: Text(slot.defaultTexts.joined(separator: " / ")))
             }
         }
     }

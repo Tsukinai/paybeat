@@ -1,12 +1,16 @@
 # 薪跳 PayBeat
 
-macOS 桌面悬浮卡片 + 菜单栏，按秒显示今天已经赚了多少钱。
+打工人哄自己上班神器（当然也可能被狗资本家气笑）。
 
-A macOS floating card and menu bar item that shows what you have earned today, second by second. The interface follows the system language (Chinese or English).
+macOS 刘海 / 桌面卡片 + 菜单栏 + 小组件，按秒显示今天已经赚了多少钱。
+
+Coaxes you into going to work (and may make you laugh at your capitalist overlords): a notch island or floating card, a menu bar item and desktop widgets showing what you have earned today, second by second. The interface follows the system language (Chinese or English).
 
 ## 功能
 
 - 今日已赚按秒跳动，另有每秒进账、时薪、日薪、工作进度、距下班、本期已赚、距发工资
+- 两种显示方式：贴着刘海的黑色岛（鼠标移上去展开成完整卡片，没有刘海时显示在屏幕顶部中间），或可拖动的桌面卡片
+- 菜单栏右键：今日概览、切换显示方式和菜单栏内容、换算币种、开机自启
 - 月薪、年薪（可设每年几薪）、时薪三种计薪方式
 - 21 种工资币种，可再选一个换算币种一键切换，汇率来自 open.er-api.com
 - 工作日自选（单休、双休都行），午休可关

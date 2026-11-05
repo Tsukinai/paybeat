@@ -22,33 +22,43 @@ struct CardView: View {
 
     private func f(_ size: CGFloat) -> CGFloat { size * look.scale }
 
+    /// Drawn inside the notch panel: no own background, no dragging, no minimize button.
+    var inNotch = false
+
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.1)) { ctx in
-            content(model.snapshot(at: ctx.date))
+        let card = TimelineView(.periodic(from: .now, by: 0.1)) { ctx in
+            content(model.snapshot(at: ctx.date), at: ctx.date)
         }
         .padding(f(16))
         .frame(width: f(320))
-        .background(
-            RoundedRectangle(cornerRadius: f(14))
-                .fill(scheme == .dark ? Color(red: 0.11, green: 0.13, blue: 0.15) : Color(white: 0.97))
-                .opacity(look.opacity)
-        )
-        .overlay(RoundedRectangle(cornerRadius: f(14)).stroke(Color.primary.opacity(0.08)))
-        .environment(\.colorScheme, scheme)
-        .gesture(WindowDragGesture())
-        .contextMenu {
-            if !model.config.altCurrency.isEmpty {
-                Button(L("显示%@", currencyName(showAlt ? model.config.currency : model.config.altCurrency))) {
-                    showAlt.toggle()
-                }
-            }
-            Button(L("设置…"), action: onSettings)
-            if let tag = updates.latestTag, let url = updates.latestURL {
-                Button(L("下载新版本 %@", tag)) { NSWorkspace.shared.open(url) }
-            }
-            Divider()
-            Button(L("退出")) { NSApp.terminate(nil) }
+        if inNotch {
+            card.contextMenu { menuItems }
+        } else {
+            card
+                .background(
+                    RoundedRectangle(cornerRadius: f(14))
+                        .fill(scheme == .dark ? Color(red: 0.11, green: 0.13, blue: 0.15) : Color(white: 0.97))
+                        .opacity(look.opacity)
+                )
+                .overlay(RoundedRectangle(cornerRadius: f(14)).stroke(Color.primary.opacity(0.08)))
+                .environment(\.colorScheme, scheme)
+                .gesture(WindowDragGesture())
+                .contextMenu { menuItems }
         }
+    }
+
+    @ViewBuilder var menuItems: some View {
+        if !model.config.altCurrency.isEmpty {
+            Button(L("显示%@", currencyName(showAlt ? model.config.currency : model.config.altCurrency))) {
+                showAlt.toggle()
+            }
+        }
+        Button(L("设置…"), action: onSettings)
+        if let tag = updates.latestTag, let url = updates.latestURL {
+            Button(L("下载新版本 %@", tag)) { NSWorkspace.shared.open(url) }
+        }
+        Divider()
+        Button(L("退出")) { NSApp.terminate(nil) }
     }
 
     func money(_ amount: Double, _ digits: Int) -> String {
@@ -56,7 +66,7 @@ struct CardView: View {
         return formatMoney(shown.value, shown.code, digits)
     }
 
-    func content(_ s: Snapshot) -> some View {
+    func content(_ s: Snapshot, at date: Date) -> some View {
         VStack(alignment: .leading, spacing: f(10)) {
             HStack(spacing: f(6)) {
                 Text(L("今日已赚")).font(.system(size: f(12))).foregroundStyle(.secondary)
@@ -65,14 +75,16 @@ struct CardView: View {
                     Button(L("下班")) { model.stopOvertime() }.controlSize(.small)
                 }
                 badge(s)
-                Button(action: onMinimize) {
+                if !inNotch {
+                    Button(action: onMinimize) {
                     Image(systemName: "minus")
                         .font(.system(size: f(10), weight: .bold))
                         .foregroundStyle(.secondary)
                         .frame(width: f(20), height: f(20))
                         .background(Circle().fill(Color.primary.opacity(0.1)))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
             Text(money(s.today, look.todayDecimals))
                 .font(.system(size: f(34), weight: .bold, design: .rounded))
@@ -124,7 +136,7 @@ struct CardView: View {
                 .foregroundStyle(.secondary)
             }
             if look.showMessage {
-                Text(look.messages[s.messageSlot.rawValue] ?? s.messageSlot.defaultText)
+                Text(look.messages[s.messageSlot.rawValue] ?? s.messageSlot.defaultText(at: date))
                     .font(.system(size: f(13)))
                     .frame(maxWidth: .infinity)
             }
