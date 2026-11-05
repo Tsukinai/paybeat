@@ -1,37 +1,46 @@
 import AppKit
+import WidgetKit
 
-struct RateCache: Codable {
+/// Every currency's rate against one base, as returned by open.er-api.com.
+struct RateTable: Codable {
     var base: String
-    var target: String
-    var rate: Double
+    var rates: [String: Double]
     var updated: Date
+}
+
+private let rateURL = configDir.appendingPathComponent("rate.json")
+
+/// Last fetched rate table; also used by the widget.
+func readRateTable() -> RateTable? {
+    (try? Data(contentsOf: rateURL)).flatMap { try? JSONDecoder().decode(RateTable.self, from: $0) }
+}
+
+/// Converts between any two currencies in the table via its base.
+func convert(_ amount: Double, from: String, to: String, _ table: RateTable?) -> Double? {
+    if from == to { return amount }
+    guard let table, let f = table.rates[from], let t = table.rates[to], f > 0 else { return nil }
+    return amount / f * t
 }
 
 @MainActor
 final class RateStore: ObservableObject {
-    @Published private(set) var cache: RateCache?
+    @Published private(set) var table: RateTable?
     private var timer: Timer?
-    private let url = configDir.appendingPathComponent("rate.json")
 
     func rate(from base: String, to target: String) -> Double? {
-        guard let cache, cache.base == base, cache.target == target else { return nil }
-        return cache.rate
+        convert(1, from: base, to: target, table)
     }
 
-    func configure(base: String, target: String) {
+    func configure(base: String) {
         timer?.invalidate()
-        timer = nil
-        guard !target.isEmpty else { return }
-        if rate(from: base, to: target) == nil {
-            cache = (try? Data(contentsOf: url)).flatMap { try? JSONDecoder().decode(RateCache.self, from: $0) }
-        }
-        refresh(base, target)
+        if table == nil { table = readRateTable() }
+        refresh(base)
         timer = Timer.scheduledTimer(withTimeInterval: 6 * 3600, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refresh(base, target) }
+            MainActor.assumeIsolated { self?.refresh(base) }
         }
     }
 
-    private func refresh(_ base: String, _ target: String) {
+    private func refresh(_ base: String) {
         Task {
             struct Resp: Decodable {
                 let result: String
@@ -42,13 +51,11 @@ final class RateStore: ObservableObject {
                 let (data, _) = try await URLSession.shared.data(
                     from: URL(string: "https://open.er-api.com/v6/latest/\(base)")!)
                 let r = try JSONDecoder().decode(Resp.self, from: data)
-                guard r.result == "success", let rate = r.rates[target] else {
-                    throw ConfigError("汇率接口返回 \(r.result)，无 \(target)")
-                }
-                let c = RateCache(base: base, target: target, rate: rate,
-                                  updated: Date(timeIntervalSince1970: r.time_last_update_unix))
-                cache = c
-                try JSONEncoder().encode(c).write(to: url)
+                guard r.result == "success" else { throw ConfigError("汇率接口返回 \(r.result)") }
+                let t = RateTable(base: base, rates: r.rates, updated: Date(timeIntervalSince1970: r.time_last_update_unix))
+                table = t
+                try JSONEncoder().encode(t).write(to: rateURL)
+                WidgetCenter.shared.reloadAllTimelines()
             } catch {
                 log("汇率更新失败: \(error)")
             }
@@ -148,11 +155,12 @@ final class AppModel: ObservableObject {
         config = new
         salary = validated
         startServices()
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     private func startServices() {
         holidays.load(config.holidayRegion)
-        rates.configure(base: config.currency, target: config.altCurrency)
+        rates.configure(base: config.currency)
         if config.checkUpdates { updates.start() } else { updates.stop() }
     }
 

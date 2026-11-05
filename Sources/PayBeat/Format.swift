@@ -1,4 +1,12 @@
-import Foundation
+import SwiftUI
+
+extension Color {
+    init(hex: String) {
+        let v = UInt32(hex, radix: 16) ?? 0x3DDC66
+        self.init(
+            red: Double((v >> 16) & 0xFF) / 255, green: Double((v >> 8) & 0xFF) / 255, blue: Double(v & 0xFF) / 255)
+    }
+}
 
 /// Localized string; keys are the Chinese source text, English lives in Localization/en.lproj.
 func L(_ key: String) -> String {

@@ -1,13 +1,5 @@
 import SwiftUI
 
-extension Color {
-    init(hex: String) {
-        let v = UInt32(hex, radix: 16) ?? 0x3DDC66
-        self.init(
-            red: Double((v >> 16) & 0xFF) / 255, green: Double((v >> 8) & 0xFF) / 255, blue: Double(v & 0xFF) / 255)
-    }
-}
-
 struct CardView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var rates: RateStore
@@ -153,12 +145,12 @@ struct CardView: View {
     var rateLine: String? {
         let cfg = model.config
         guard !cfg.altCurrency.isEmpty else { return nil }
-        guard let cache = rates.cache, let rate = rates.rate(from: cfg.currency, to: cfg.altCurrency) else {
+        guard let table = rates.table, let rate = rates.rate(from: cfg.currency, to: cfg.altCurrency) else {
             return L("汇率未获取")
         }
         return L(
             "1 %@ = %@ %@ · %@ 更新", cfg.currency, rate.formatted(.number.precision(.fractionLength(4))),
-            cfg.altCurrency, cache.updated.formatted(.dateTime.month(.twoDigits).day(.twoDigits)))
+            cfg.altCurrency, table.updated.formatted(.dateTime.month(.twoDigits).day(.twoDigits)))
     }
 
     func stat(_ title: String, _ value: String) -> some View {

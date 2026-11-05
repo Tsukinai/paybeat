@@ -1,4 +1,5 @@
 import Foundation
+import WidgetKit
 
 /// One dated entry: a day off, or (China) a weekend that is a make-up workday.
 struct HolidayDay: Codable {
@@ -45,11 +46,35 @@ func regionName(_ code: String) -> String {
     return Locale.current.localizedString(forRegionCode: code) ?? code
 }
 
+private let holidaysDir = configDir.appendingPathComponent("holidays")
+
+private var holidayYears: [Int] {
+    let y = Calendar.current.component(.year, from: Date())
+    return [y - 1, y, y + 1]
+}
+
+private func holidayCacheURL(_ region: String, _ year: Int) -> URL {
+    holidaysDir.appendingPathComponent("\(region)-\(year).json")
+}
+
+/// Reads the cached holidays for last, this and next year; also used by the widget.
+func readHolidayCache(_ region: String) -> HolidayCalendar {
+    var cal = HolidayCalendar()
+    guard !region.isEmpty else { return cal }
+    for y in holidayYears {
+        if let data = try? Data(contentsOf: holidayCacheURL(region, y)),
+            let days = try? JSONDecoder().decode([HolidayDay].self, from: data)
+        {
+            cal.add(days)
+        }
+    }
+    return cal
+}
+
 @MainActor
 final class HolidayStore: ObservableObject {
     @Published private(set) var calendars: [String: HolidayCalendar] = [:]
     private var lastFetch: [String: Date] = [:]
-    private let dir = configDir.appendingPathComponent("holidays")
 
     func calendar(for region: String) -> HolidayCalendar {
         calendars[region] ?? HolidayCalendar()
@@ -58,46 +83,28 @@ final class HolidayStore: ObservableObject {
     /// Loads the disk cache, then refreshes from the network at most every 12 hours.
     func load(_ region: String) {
         guard !region.isEmpty else { return }
-        if calendars[region] == nil { calendars[region] = readCache(region) }
+        if calendars[region] == nil { calendars[region] = readHolidayCache(region) }
         if let last = lastFetch[region], Date().timeIntervalSince(last) < 12 * 3600 { return }
         lastFetch[region] = Date()
         Task { await fetch(region) }
     }
 
-    private var years: [Int] {
-        let y = Calendar.current.component(.year, from: Date())
-        return [y - 1, y, y + 1]
-    }
-
-    private func cacheURL(_ region: String, _ year: Int) -> URL {
-        dir.appendingPathComponent("\(region)-\(year).json")
-    }
-
-    private func readCache(_ region: String) -> HolidayCalendar {
-        var cal = HolidayCalendar()
-        for y in years {
-            if let data = try? Data(contentsOf: cacheURL(region, y)),
-                let days = try? JSONDecoder().decode([HolidayDay].self, from: data)
-            {
-                cal.add(days)
-            }
-        }
-        return cal
-    }
-
     private func fetch(_ region: String) async {
         var changed = false
-        for y in years {
+        for y in holidayYears {
             do {
                 guard let days = try await download(region, y) else { continue }
-                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-                try JSONEncoder().encode(days).write(to: cacheURL(region, y))
+                try FileManager.default.createDirectory(at: holidaysDir, withIntermediateDirectories: true)
+                try JSONEncoder().encode(days).write(to: holidayCacheURL(region, y))
                 changed = true
             } catch {
                 log("节假日数据 \(region) \(y) 获取失败: \(error)")
             }
         }
-        if changed { calendars[region] = readCache(region) }
+        if changed {
+            calendars[region] = readHolidayCache(region)
+            WidgetCenter.shared.reloadAllTimelines()
+        }
     }
 
     /// Returns nil when that year has not been published.

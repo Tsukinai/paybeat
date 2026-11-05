@@ -16,6 +16,7 @@ A macOS floating card and menu bar item that shows what you have earned today, s
 - 外观：主题色、深色 / 浅色、不透明度、卡片大小、小数位、卡片显示哪几行，在设置里改动时卡片实时预览
 - 菜单栏可显示今日已赚、距下班倒计时，或只显示图标
 - 每个阶段的鼓励语可自定义
+- 桌面小组件："今日已赚"（小号、中号）和"汇率"（小号）。右键小组件选"编辑"，可以换金额币种、换算币种、小数位，汇率小组件可以任选两种货币
 - 开机自启、自动检查更新
 
 ## 安装
@@ -34,13 +35,13 @@ xattr -dr com.apple.quarantine /Applications/PayBeat.app
 
 ### 从源码安装
 
-需要 macOS 15+ 和 Swift 6（Xcode 或 Command Line Tools）。
+需要 macOS 15+、Xcode（免费）和 xcodegen（`brew install xcodegen`）。工程由 `project.yml` 生成，`PayBeat.xcodeproj` 不进仓库。
 
 ```sh
 ./install.sh
 ```
 
-编译并安装到 `/Applications/PayBeat.app`。改代码后重新运行即可更新。
+编译 app 和小组件并安装到 `/Applications/PayBeat.app`。改代码后重新运行即可更新。
 
 `./release.sh` 会编译通用版本并打包成 `.build/PayBeat-<版本号>.dmg`，版本号在 `Info.plist` 里改。
 
@@ -59,6 +60,10 @@ xattr -dr com.apple.quarantine /Applications/PayBeat.app
 - 卡片上的时薪、日薪默认按实际工作时间算，也可以改成按固定天数和小时（比如每月 21.75 天、每天 8 小时）
 - 节假日不算工作日；中国大陆的调休上班日算工作日
 
+## 小组件
+
+在桌面右键选"编辑小组件…"，搜"薪跳"，把"今日已赚"或"汇率"拖到桌面。金额每分钟更新一次，距下班倒计时每秒走。小组件不联网，读的是 app 存下来的设置、汇率表和节假日缓存，所以 app 要保持运行才会更新汇率。
+
 ## 文件
 
-配置和缓存都在 `~/.config/work-ticker/`：`config.json` 是设置，`rate.json` 是汇率缓存，`holidays/` 是节假日缓存。直接改 `config.json` 的话要重启程序才生效。
+配置和缓存都在 `~/.config/work-ticker/`：`config.json` 是设置，`rate.json` 是汇率表，`holidays/` 是节假日缓存。直接改 `config.json` 的话要重启程序才生效。

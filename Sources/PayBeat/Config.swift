@@ -187,7 +187,14 @@ struct ConfigError: LocalizedError {
     init(_ message: String) { errorDescription = message }
 }
 
-let configDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config/work-ticker")
+/// The real home directory; inside the widget's sandbox `homeDirectoryForCurrentUser` is the container.
+let realHome: URL = {
+    if let pw = getpwuid(getuid()), let dir = pw.pointee.pw_dir {
+        return URL(fileURLWithPath: String(cString: dir))
+    }
+    return FileManager.default.homeDirectoryForCurrentUser
+}()
+let configDir = realHome.appendingPathComponent(".config/work-ticker")
 let configURL = configDir.appendingPathComponent("config.json")
 
 func saveConfig(_ cfg: Config) throws {
