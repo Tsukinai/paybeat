@@ -9,6 +9,20 @@ macOS 桌面悬浮卡片 + 菜单栏，实时显示今天已经赚了多少钱�
 
 ## 安装
 
+### 下载
+
+到 [Releases](https://github.com/Tsukinai/work-ticker/releases) 下载 `WorkTicker-x.y.z.dmg`，打开后把 WorkTicker 拖进"应用程序"。需要 macOS 15+，支持 Apple 芯片和 Intel。
+
+app 没有经过 Apple 公证，第一次打开会被系统拦下。到"系统设置 > 隐私与安全性"，在页面下方点"仍要打开"。也可以在终端执行：
+
+```sh
+xattr -dr com.apple.quarantine /Applications/WorkTicker.app
+```
+
+开机自启：到"系统设置 > 通用 > 登录项与扩展"，在"登录时打开"里点"+"，添加 WorkTicker。
+
+### 从源码安装
+
 需要 macOS 15+ 和 Swift 6（Xcode 或 Command Line Tools）。
 
 ```sh
@@ -16,6 +30,8 @@ macOS 桌面悬浮卡片 + 菜单栏，实时显示今天已经赚了多少钱�
 ```
 
 编译并安装到 `/Applications/WorkTicker.app`，同时添加登录启动项。改代码后重新运行即可更新。
+
+`./release.sh` 会编译通用版本并打包成 `.build/WorkTicker-<版本号>.dmg`，版本号在 `Info.plist` 里改。
 
 ## 使用
 
