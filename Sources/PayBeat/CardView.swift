@@ -95,6 +95,7 @@ struct CardView: View {
             if look.showRates {
                 HStack(alignment: .top) {
                     stat(L("每秒进账"), money(s.perSecond, 4))
+                    stat(L("每分钟进账"), money(s.perSecond * 60, 2))
                     stat(L("时薪"), money(s.hourly, look.wholeRates ? 0 : 2))
                     stat(L("日薪"), money(s.daily, look.wholeRates ? 0 : 2))
                 }
@@ -167,8 +168,8 @@ struct CardView: View {
 
     func stat(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: f(2)) {
-            Text(title).font(.system(size: f(11))).foregroundStyle(.secondary)
-            Text(value).font(.system(size: f(14), weight: .semibold)).monospacedDigit()
+            Text(title).font(.system(size: f(11))).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
+            Text(value).font(.system(size: f(14), weight: .semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

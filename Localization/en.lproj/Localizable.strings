@@ -66,14 +66,15 @@
 "本期已赚 %@" = "This period %@";
 "本期已赚和发薪倒计时" = "Pay period earnings and payday countdown";
 "欢迎使用薪跳，先填一下工资和上下班时间" = "Welcome to PayBeat. Enter your salary and work hours to start.";
+"每分钟进账" = "Per minute";
 "每天小时数" = "Hours per day";
 "每年发" = "Paid per year";
 "每年发薪月数需在 1 到 24 之间" = "Months paid per year must be between 1 and 24";
 "每月 %d 号" = "Day %d of each month";
 "每月天数" = "Days per month";
 "每秒进账" = "Per second";
-"每秒进账 %@" = "Per second %@";
-"每秒进账、时薪、日薪" = "Per second, hourly and daily rates";
+"每秒、每分钟进账，时薪、日薪" = "Per second and per minute, hourly and daily rates";
+"每秒进账 %@ · 每分钟进账 %@" = "Per second %1$@ · per minute %2$@";
 "汇率" = "Exchange rate";
 "汇率未获取" = "Exchange rate unavailable";
 "浅色" = "Light";

@@ -67,7 +67,7 @@ struct SettingsView: View {
             let m = { (v: Double, d: Int) in formatMoney(v, draft.currency, d) }
             VStack(alignment: .leading, spacing: 2) {
                 Text(L("本期 %d 个工作日 · 日薪 %@ · 时薪 %@", s.cycleWorkdays, m(s.daily, 2), m(s.hourly, 2)))
-                Text(L("每秒进账 %@", m(s.perSecond, 4)))
+                Text(L("每秒进账 %@ · 每分钟进账 %@", m(s.perSecond, 4), m(s.perSecond * 60, 2)))
                 if let saveError { Text(saveError).foregroundStyle(.red) }
             }
             .font(.callout)
@@ -175,7 +175,7 @@ struct SettingsView: View {
             }
             LabeledContent(L("卡片显示")) {
                 VStack(alignment: .leading) {
-                    Toggle(L("每秒进账、时薪、日薪"), isOn: $draft.showRates)
+                    Toggle(L("每秒、每分钟进账，时薪、日薪"), isOn: $draft.showRates)
                     Toggle(L("工作进度"), isOn: $draft.showProgress)
                     Toggle(L("本期已赚和发薪倒计时"), isOn: $draft.showCycle)
                     Toggle(L("鼓励语"), isOn: $draft.showMessage)
