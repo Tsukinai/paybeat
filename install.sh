@@ -10,8 +10,14 @@ xcodebuild -project PayBeat.xcodeproj -scheme PayBeat -configuration Release \
     -destination 'generic/platform=macOS' -derivedDataPath .build/xcode build -quiet
 
 APP=/Applications/PayBeat.app
+BUILT="$PWD/.build/xcode/Build/Products/Release/PayBeat.app"
 pkill -x PayBeat || true
 rm -rf "$APP"
-cp -R .build/xcode/Build/Products/Release/PayBeat.app "$APP"
+cp -R "$BUILT" "$APP"
+# Keep only the installed copy registered: with the build product also registered,
+# chronod rejects every widget timeline ("Bundle version did not match") and widgets stay blank.
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+"$LSREGISTER" -u "$BUILT" 2>/dev/null || true  # fails when the build product is not registered
+"$LSREGISTER" -f -R -trusted "$APP"
 open "$APP"
 echo "Installed $APP"
