@@ -124,6 +124,8 @@ struct Config: Codable, Equatable {
     var messages: [String: String] = [:]
     var checkUpdates = true
     var displayMode = DisplayMode.notch
+    /// Display the notch island sits on: "display:<UUID>", or empty for the screen with a notch.
+    var notchScreen = ""
     var accent = "3DDC66"
     var theme = CardTheme.dark
     var opacity = 0.95
@@ -177,6 +179,7 @@ struct Config: Codable, Equatable {
         messages = try value(.messages, d.messages)
         checkUpdates = try value(.checkUpdates, d.checkUpdates)
         displayMode = try value(.displayMode, d.displayMode)
+        notchScreen = try value(.notchScreen, d.notchScreen)
         accent = try value(.accent, d.accent)
         theme = try value(.theme, d.theme)
         opacity = try value(.opacity, d.opacity)

@@ -1,8 +1,69 @@
 import ServiceManagement
 import SwiftUI
 
+enum SettingsPage: String, Identifiable, Hashable {
+    case salary, time, display, look, messages, general
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .salary: L("薪资")
+        case .time: L("时间")
+        case .display: L("显示")
+        case .look: L("外观")
+        case .messages: L("鼓励语")
+        case .general: L("通用")
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .salary: "banknote.fill"
+        case .time: "clock.fill"
+        case .display: "macbook"
+        case .look: "paintbrush.fill"
+        case .messages: "text.bubble.fill"
+        case .general: "gearshape.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .salary: .green
+        case .time: .orange
+        case .display: .teal
+        case .look: .blue
+        case .messages: .pink
+        case .general: .gray
+        }
+    }
+}
+
+/// Sidebar entry in the System Settings style: a white glyph on a rounded colored square.
+private struct SidebarRow: View {
+    let page: SettingsPage
+
+    var body: some View {
+        Label {
+            Text(page.title)
+                .font(.system(size: 13))
+                .padding(.leading, 2)
+        } icon: {
+            ZStack {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(page.color.gradient)
+                    .frame(width: 24, height: 24)
+                Image(systemName: page.icon)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white)
+            }
+        }
+    }
+}
+
 struct SettingsView: View {
     @State private var draft: Config
+    @State private var page = SettingsPage.salary
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var saveError: String?
     @ObservedObject var holidays: HolidayStore
@@ -31,34 +92,60 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            if firstRun {
-                Text(L("欢迎使用薪跳，先填一下工资和上下班时间")).padding(.top, 16)
+        NavigationSplitView {
+            List(selection: $page) {
+                Section {
+                    ForEach([SettingsPage.salary, .time, .display, .look, .messages]) { p in
+                        SidebarRow(page: p).tag(p)
+                    }
+                }
+                Section(L("薪跳")) {
+                    SidebarRow(page: .general).tag(SettingsPage.general)
+                }
             }
-            TabView {
-                salaryTab.tabItem { Text(L("薪资")) }
-                timeTab.tabItem { Text(L("时间")) }
-                lookTab.tabItem { Text(L("外观")) }
-                messagesTab.tabItem { Text(L("鼓励语")) }
-                generalTab.tabItem { Text(L("通用")) }
-            }
-            .padding(16)
-            Divider()
-            HStack(alignment: .firstTextBaseline) {
-                summary
-                Spacer()
-                Button(firstRun ? L("开始使用") : L("保存"), action: save)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled((try? preview.get()) == nil)
-            }
-            .padding(16)
+            .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(180)
+        } detail: {
+            detail
+                .formStyle(.grouped)
+                .navigationTitle(page.title)
+                .safeAreaInset(edge: .bottom, spacing: 0) { footer }
         }
-        .frame(width: 500)
+        .toolbar(removing: .sidebarToggle)
+        .frame(minWidth: 680, minHeight: 500)
         .onChange(of: draft) { _, new in
             saveError = nil
             holidays.load(new.holidayRegion)
             onChange(new)
         }
+    }
+
+    @ViewBuilder var detail: some View {
+        switch page {
+        case .salary: salaryPage
+        case .time: timePage
+        case .display: displayPage
+        case .look: lookPage
+        case .messages: messagesPage
+        case .general: generalPage
+        }
+    }
+
+    var footer: some View {
+        VStack(spacing: 0) {
+            Divider()
+            HStack(alignment: .center, spacing: 12) {
+                summary
+                Spacer(minLength: 0)
+                Button(firstRun ? L("开始使用") : L("保存"), action: save)
+                    .keyboardShortcut(.defaultAction)
+                    .controlSize(.large)
+                    .disabled((try? preview.get()) == nil)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+        }
+        .background(.bar)
     }
 
     @ViewBuilder var summary: some View {
@@ -71,6 +158,7 @@ struct SettingsView: View {
                 if let saveError { Text(saveError).foregroundStyle(.red) }
             }
             .font(.callout)
+            .monospacedDigit()
             .foregroundStyle(.secondary)
         case .failure(let error):
             Text(saveError ?? error.localizedDescription).font(.callout).foregroundStyle(.red)
@@ -85,142 +173,195 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: Tabs
+    // MARK: Pages
 
-    var salaryTab: some View {
+    var salaryPage: some View {
         Form {
-            Picker(L("计薪方式"), selection: $draft.salaryType) {
-                ForEach(SalaryType.allCases) { Text($0.label).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            TextField(draft.salaryType.label, value: $draft.salary, format: .number)
-            if draft.salaryType == .monthly {
-                Picker(L("每年发"), selection: $draft.monthsPerYear) {
-                    ForEach(12...18, id: \.self) { Text(L("%d 薪", $0)).tag($0) }
+            if firstRun {
+                Section {
+                    Text(L("欢迎使用薪跳，先填一下工资和上下班时间"))
                 }
             }
-            Picker(L("工资币种"), selection: $draft.currency) {
-                ForEach(commonCurrencies, id: \.self) { Text(verbatim: "\(currencyName($0)) \($0)").tag($0) }
-            }
-            Picker(L("换算币种"), selection: $draft.altCurrency) {
-                Text(L("不换算")).tag("")
-                ForEach(commonCurrencies.filter { $0 != draft.currency }, id: \.self) {
-                    Text(verbatim: "\(currencyName($0)) \($0)").tag($0)
+            Section {
+                Picker(L("计薪方式"), selection: $draft.salaryType) {
+                    ForEach(SalaryType.allCases) { Text($0.label).tag($0) }
                 }
-            }
-            Picker(L("发薪日"), selection: $draft.payDay) {
-                ForEach(1...31, id: \.self) { Text(L("每月 %d 号", $0)).tag($0) }
-            }
-            Toggle(L("发薪日遇到休息日提前发"), isOn: $draft.payEarlyOnHoliday)
-        }
-    }
-
-    var timeTab: some View {
-        Form {
-            DatePicker(L("上班"), selection: time(\.workStart), displayedComponents: .hourAndMinute)
-            DatePicker(L("下班"), selection: time(\.workEnd), displayedComponents: .hourAndMinute)
-            Toggle(L("有午休"), isOn: $draft.hasLunch)
-            if draft.hasLunch {
-                DatePicker(L("午休开始"), selection: time(\.lunchStart), displayedComponents: .hourAndMinute)
-                DatePicker(L("午休结束"), selection: time(\.lunchEnd), displayedComponents: .hourAndMinute)
-            }
-            LabeledContent(L("工作日")) {
-                HStack(spacing: 4) {
-                    ForEach([2, 3, 4, 5, 6, 7, 1], id: \.self) { weekday in
-                        Toggle(Calendar.current.shortWeekdaySymbols[weekday - 1], isOn: workday(weekday))
-                            .toggleStyle(.button)
+                .pickerStyle(.segmented)
+                TextField(draft.salaryType.label, value: $draft.salary, format: .number)
+                if draft.salaryType == .monthly {
+                    Picker(L("每年发"), selection: $draft.monthsPerYear) {
+                        ForEach(12...18, id: \.self) { Text(L("%d 薪", $0)).tag($0) }
                     }
                 }
             }
-            Picker(L("节假日"), selection: $draft.holidayRegion) {
-                Text(regionName("")).tag("")
-                Text(regionName("CN")).tag("CN")
-                Divider()
-                ForEach(holidayRegions.dropFirst().sorted { regionName($0) < regionName($1) }, id: \.self) {
-                    Text(regionName($0)).tag($0)
+            Section {
+                Picker(L("工资币种"), selection: $draft.currency) {
+                    ForEach(commonCurrencies, id: \.self) { Text(verbatim: "\(currencyName($0)) \($0)").tag($0) }
                 }
-            }
-            Toggle(L("下班后继续计时（加班）"), isOn: $draft.overtime)
-            if draft.overtime {
-                TextField(L("加班倍率"), value: $draft.overtimeRate, format: .number)
-            }
-        }
-    }
-
-    var lookTab: some View {
-        Form {
-            Picker(L("显示方式"), selection: $draft.displayMode) {
-                ForEach(DisplayMode.allCases) { Text($0.label).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            LabeledContent(L("主题色")) {
-                HStack(spacing: 8) {
-                    ForEach(accentColors, id: \.hex) { c in
-                        Circle()
-                            .fill(Color(hex: c.hex))
-                            .frame(width: 18, height: 18)
-                            .overlay(Circle().stroke(Color.primary, lineWidth: draft.accent == c.hex ? 2 : 0).padding(-3))
-                            .onTapGesture { draft.accent = c.hex }
+                Picker(L("换算币种"), selection: $draft.altCurrency) {
+                    Text(L("不换算")).tag("")
+                    ForEach(commonCurrencies.filter { $0 != draft.currency }, id: \.self) {
+                        Text(verbatim: "\(currencyName($0)) \($0)").tag($0)
                     }
                 }
             }
-            Picker(L("卡片颜色"), selection: $draft.theme) {
-                ForEach(CardTheme.allCases) { Text($0.label).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            Slider(value: $draft.opacity, in: 0.4...1) { Text(L("不透明度")) }
-            Slider(value: $draft.scale, in: 0.8...1.4, step: 0.1) { Text(L("卡片大小")) }
-            Picker(L("今日已赚小数位"), selection: $draft.todayDecimals) {
-                ForEach(0...4, id: \.self) { Text(verbatim: "\($0)").tag($0) }
-            }
-            LabeledContent(L("卡片显示")) {
-                VStack(alignment: .leading) {
-                    Toggle(L("每秒、每分钟进账，时薪、日薪"), isOn: $draft.showRates)
-                    Toggle(L("工作进度"), isOn: $draft.showProgress)
-                    Toggle(L("本期已赚和发薪倒计时"), isOn: $draft.showCycle)
-                    Toggle(L("鼓励语"), isOn: $draft.showMessage)
-                    Toggle(L("汇率"), isOn: $draft.showRateLine)
+            Section {
+                Picker(L("发薪日"), selection: $draft.payDay) {
+                    ForEach(1...31, id: \.self) { Text(L("每月 %d 号", $0)).tag($0) }
                 }
-            }
-            if draft.salaryType != .hourly {
-                Picker(L("时薪、日薪算法"), selection: $draft.customBasis) {
-                    Text(L("按实际工作时间")).tag(false)
-                    Text(L("按固定天数和小时")).tag(true)
-                }
-                if draft.customBasis {
-                    TextField(L("每月天数"), value: $draft.basisDays, format: .number)
-                    TextField(L("每天小时数"), value: $draft.basisHours, format: .number)
-                }
-            }
-            Toggle(L("时薪、日薪只显示整数"), isOn: $draft.wholeRates)
-            Picker(L("菜单栏显示"), selection: $draft.statusBar) {
-                ForEach(StatusBarMode.allCases) { Text($0.label).tag($0) }
+                Toggle(L("发薪日遇到休息日提前发"), isOn: $draft.payEarlyOnHoliday)
             }
         }
     }
 
-    var messagesTab: some View {
+    var timePage: some View {
         Form {
-            ForEach(MessageSlot.allCases) { slot in
-                TextField(slot.label, text: message(slot), prompt: Text(slot.defaultTexts.joined(separator: " / ")))
-            }
-        }
-    }
-
-    var generalTab: some View {
-        Form {
-            Toggle(L("开机自启"), isOn: $launchAtLogin)
-            Toggle(L("自动检查更新"), isOn: $draft.checkUpdates)
-            LabeledContent(L("版本")) {
-                HStack {
-                    Text(verbatim: appVersion ?? "dev")
-                    if let tag = updates.latestTag, let url = updates.latestURL {
-                        Link(L("下载新版本 %@", tag), destination: url)
+            Section {
+                DatePicker(L("上班"), selection: time(\.workStart), displayedComponents: .hourAndMinute)
+                DatePicker(L("下班"), selection: time(\.workEnd), displayedComponents: .hourAndMinute)
+                LabeledContent(L("工作日")) {
+                    HStack(spacing: 4) {
+                        ForEach([2, 3, 4, 5, 6, 7, 1], id: \.self) { weekday in
+                            Toggle(Calendar.current.shortWeekdaySymbols[weekday - 1], isOn: workday(weekday))
+                                .toggleStyle(.button)
+                        }
                     }
                 }
             }
-            LabeledContent(L("项目主页")) {
-                Link("GitHub" as String, destination: repoURL)
+            Section {
+                Toggle(L("有午休"), isOn: $draft.hasLunch)
+                if draft.hasLunch {
+                    DatePicker(L("午休开始"), selection: time(\.lunchStart), displayedComponents: .hourAndMinute)
+                    DatePicker(L("午休结束"), selection: time(\.lunchEnd), displayedComponents: .hourAndMinute)
+                }
+            }
+            Section {
+                Picker(L("节假日"), selection: $draft.holidayRegion) {
+                    Text(regionName("")).tag("")
+                    Text(regionName("CN")).tag("CN")
+                    Divider()
+                    ForEach(holidayRegions.dropFirst().sorted { regionName($0) < regionName($1) }, id: \.self) {
+                        Text(regionName($0)).tag($0)
+                    }
+                }
+            }
+            Section {
+                Toggle(L("下班后继续计时（加班）"), isOn: $draft.overtime)
+                if draft.overtime {
+                    TextField(L("加班倍率"), value: $draft.overtimeRate, format: .number)
+                }
+            }
+        }
+    }
+
+    var displayPage: some View {
+        Form {
+            Section {
+                Picker(L("显示方式"), selection: $draft.displayMode) {
+                    ForEach(DisplayMode.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                if draft.displayMode == .notch {
+                    Picker(L("刘海显示在"), selection: $draft.notchScreen) {
+                        Text(L("自动（有刘海的屏幕）")).tag("")
+                        ForEach(NSScreen.screens, id: \.self) { screen in
+                            if let tag = screenTag(screen) {
+                                Text(screenName(screen)).tag(tag)
+                            }
+                        }
+                        // A chosen display that is unplugged keeps its row; the island falls back to auto meanwhile.
+                        if !draft.notchScreen.isEmpty,
+                           !NSScreen.screens.contains(where: { screenTag($0) == draft.notchScreen }) {
+                            Text(L("未连接的显示器")).tag(draft.notchScreen)
+                        }
+                    }
+                }
+            }
+            Section {
+                Picker(L("菜单栏显示"), selection: $draft.statusBar) {
+                    ForEach(StatusBarMode.allCases) { Text($0.label).tag($0) }
+                }
+            }
+        }
+    }
+
+    var lookPage: some View {
+        Form {
+            Section {
+                LabeledContent(L("主题色")) {
+                    HStack(spacing: 8) {
+                        ForEach(accentColors, id: \.hex) { c in
+                            Circle()
+                                .fill(Color(hex: c.hex))
+                                .frame(width: 18, height: 18)
+                                .overlay(
+                                    Circle().stroke(Color.primary, lineWidth: draft.accent == c.hex ? 2 : 0).padding(-3))
+                                .onTapGesture { draft.accent = c.hex }
+                        }
+                    }
+                }
+                Picker(L("卡片颜色"), selection: $draft.theme) {
+                    ForEach(CardTheme.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                Slider(value: $draft.opacity, in: 0.4...1) { Text(L("不透明度")) }
+                Slider(value: $draft.scale, in: 0.8...1.4, step: 0.1) { Text(L("卡片大小")) }
+            }
+            Section(L("卡片显示")) {
+                Toggle(L("每秒、每分钟进账，时薪、日薪"), isOn: $draft.showRates)
+                Toggle(L("工作进度"), isOn: $draft.showProgress)
+                Toggle(L("本期已赚和发薪倒计时"), isOn: $draft.showCycle)
+                Toggle(L("鼓励语"), isOn: $draft.showMessage)
+                Toggle(L("汇率"), isOn: $draft.showRateLine)
+            }
+            Section {
+                Picker(L("今日已赚小数位"), selection: $draft.todayDecimals) {
+                    ForEach(0...4, id: \.self) { Text(verbatim: "\($0)").tag($0) }
+                }
+                if draft.salaryType != .hourly {
+                    Picker(L("时薪、日薪算法"), selection: $draft.customBasis) {
+                        Text(L("按实际工作时间")).tag(false)
+                        Text(L("按固定天数和小时")).tag(true)
+                    }
+                    if draft.customBasis {
+                        TextField(L("每月天数"), value: $draft.basisDays, format: .number)
+                        TextField(L("每天小时数"), value: $draft.basisHours, format: .number)
+                    }
+                }
+                Toggle(L("时薪、日薪只显示整数"), isOn: $draft.wholeRates)
+            }
+        }
+    }
+
+    var messagesPage: some View {
+        Form {
+            Section {
+                ForEach(MessageSlot.allCases) { slot in
+                    TextField(
+                        slot.label, text: message(slot), prompt: Text(slot.defaultTexts.joined(separator: " / ")))
+                }
+            }
+        }
+    }
+
+    var generalPage: some View {
+        Form {
+            Section {
+                Toggle(L("开机自启"), isOn: $launchAtLogin)
+                Toggle(L("自动检查更新"), isOn: $draft.checkUpdates)
+            }
+            Section {
+                LabeledContent(L("版本")) {
+                    HStack {
+                        Text(verbatim: appVersion ?? "dev")
+                        if let tag = updates.latestTag, let url = updates.latestURL {
+                            Link(L("下载新版本 %@", tag), destination: url)
+                        }
+                    }
+                }
+                LabeledContent(L("项目主页")) {
+                    Link("GitHub" as String, destination: repoURL)
+                }
             }
         }
     }

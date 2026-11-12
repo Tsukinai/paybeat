@@ -285,7 +285,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Centers a fixed transparent window on the notch; the black shape inside grows and shrinks.
     func layoutNotch() {
         guard let panel = notchPanel, let model else { return }
-        guard let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.main else { return }
+        guard let screen = notchScreen((model.preview ?? model.config).notchScreen) else { return }
         var notch = CGSize(width: 120, height: max(24, screen.frame.maxY - screen.visibleFrame.maxY))
         var centerX = screen.frame.midX
         if screen.safeAreaInsets.top > 0, let l = screen.auxiliaryTopLeftArea, let r = screen.auxiliaryTopRightArea {
@@ -355,10 +355,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 onChange: { [weak self] draft in self?.model?.preview = draft },
                 onSave: { [weak self] cfg, launchAtLogin in try self?.save(cfg, launchAtLogin: launchAtLogin) })
             let controller = NSHostingController(rootView: view)
-            controller.sizingOptions = [.preferredContentSize]
+            controller.sizingOptions = []
             let window = NSWindow(contentViewController: controller)
             window.title = firstRun ? L("薪跳") : L("设置")
-            window.styleMask = [.titled, .closable]
+            window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+            window.setContentSize(NSSize(width: 720, height: 540))
+            window.contentMinSize = NSSize(width: 680, height: 500)
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.center()
